@@ -1,0 +1,82 @@
+#include "iostream"
+#include "cuda_runtime.h"
+#include "device_launch_parameters.h"
+
+#include <stdio.h>
+#include <conio.h>
+
+using namespace std;
+
+__global__ void matrixMul(int *mat1_d, int *mat2_d, int *res_d, int N) {
+	int row = threadIdx.x;
+	int col = threadIdx.y;
+	
+	for (int i = 0; i < N; i++) {
+		res_d[row*N + col] += mat1_d[row*N + i] * mat2_d[i*N + col];
+	}
+}
+
+
+int main() {
+	int *mat1_h, *mat2_h, *res_h, *mat1_d, *mat2_d, *res_d;
+	int N = 2;
+	size_t size = N*N*sizeof(int);
+
+	mat1_h = new int[N*N];
+	mat2_h = new int[N*N];
+	res_h = new int[N*N];
+
+	for (int i = 0; i < N; i++) {
+		for (int j = 0; j < N; j++) {
+			mat1_h[i*N + j] = rand() % 10;
+			mat2_h[i*N + j] = rand() % 10;
+		}
+	}
+
+	cout << "\nSize of matrix is: " << N;
+	cout << "\n\nMatrix 1:";
+	for (int i = 0; i < N; i++) {
+		cout << endl;
+		for (int j = 0; j < N; j++) {
+			cout << mat1_h[i*N + j] << "\t";
+		}
+	}
+
+	cout << "\n\nMatrix 2:\n";
+	for (int i = 0; i < N; i++) {
+		cout << endl;
+		for (int j = 0; j < N; j++) {
+			cout << mat2_h[i*N + j] << "\t";
+		}
+	}
+
+	cudaMalloc((void**)&mat1_d, size);
+	cudaMalloc((void**)&mat2_d, size);
+	cudaMalloc((void**)&res_d, size);
+
+	cudaMemcpy(mat1_d, mat1_h, size, cudaMemcpyHostToDevice);
+	cudaMemcpy(mat2_d, mat2_h, size, cudaMemcpyHostToDevice);
+
+	dim3 thblk(N, N);
+	matrixMul << <1, thblk >> >(mat1_d, mat2_d, res_d, N);
+
+	cudaMemcpy(res_h, res_d, size, cudaMemcpyDeviceToHost);
+
+	cout << "\n\nMultiplication result:\n";
+	for (int i = 0; i < N; i++) {
+		cout << endl;
+		for (int j = 0; j < N; j++) {
+			cout << res_h[i*N + j] << "\t";
+		}
+	}
+
+	cudaFree(mat1_d);
+	cudaFree(mat2_d);
+	cudaFree(res_d);
+	delete mat1_h;
+	delete mat2_h;
+	delete res_h;
+
+	getch();
+	return 0;
+}

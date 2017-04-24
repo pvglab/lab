@@ -1,0 +1,71 @@
+#include "iostream"
+#include "cuda_runtime.h"
+#include "device_launch_parameters.h"
+
+#include <stdio.h>
+#include <conio.h>
+
+using namespace std;
+
+__global__ void even(int *arr_d, int len) {
+	int k = threadIdx.x;
+	int temp;
+	k = k * 2;
+
+	if (k <= len - 2) {
+		if (arr_d[k] > arr_d[k + 1]) {
+			temp = arr_d[k];
+			arr_d[k] = arr_d[k + 1];
+			arr_d[k + 1] = temp;
+		}
+	}
+}
+
+__global__ void odd(int *arr_d, int len) {
+	int k = threadIdx.x;
+	int temp;
+	k = (k * 2) + 1;
+
+	if (k <= len - 2) {
+		if (arr_d[k] > arr_d[k + 1]) {
+			temp = arr_d[k];
+			arr_d[k] = arr_d[k + 1];
+			arr_d[k + 1] = temp;
+		}
+	}
+}
+
+int main() {
+
+	int len, *arr_h, *arr_d;
+
+	cout << "\nEnter number of elements: ";		cin >> len;
+
+	arr_h = new int[len];
+	size_t size = len*sizeof(int);
+
+	cout << "\nEnter array to sort:\n";
+	for (int i = 0; i < len; i++)
+		cin >> arr_h[i];
+
+	cudaMalloc((void**)&arr_d, size);
+	cudaMemcpy(arr_d, arr_h, size, cudaMemcpyHostToDevice);
+
+	for (int i = 0; i <= len / 2; i++) {
+		even << <1, len >> >(arr_d, len);
+		odd << <1, len >> >(arr_d, len);
+	}
+
+	cudaMemcpy(arr_h, arr_d, size, cudaMemcpyDeviceToHost);
+
+	cout << "\nSorted array:\n";
+	for (int i = 0; i < len; i++)
+		cout << arr_h[i] << "\t";
+	cout << endl;
+
+	cudaFree(arr_d);
+	delete arr_h;
+
+	getch();
+	return 0;
+}

@@ -1,0 +1,117 @@
+#include "iostream"
+#include "cuda_runtime.h"
+#include "device_launch_parameters.h"
+
+#include <stdio.h>
+#include <conio.h>
+
+using namespace std;
+
+__global__ void sort(int *arr_d, int *arrl_d, int *arrh_d, int pivot, int len) {
+	int id = threadIdx.x;
+	bool flag;
+
+	int element = arr_d[id + 1];
+	
+	if (element <= pivot)
+		flag = true;
+	else if(element > pivot)
+		flag = false;
+	
+	__syncthreads();
+
+	if(flag)
+		arrl_d[id] = element;
+	else
+		arrh_d[id] = element;
+}
+
+void quickSort(int *arr, int len) {
+	if (len == 1 || len == 0)
+		return;
+	
+	int pivot = arr[0];
+	size_t size = len * sizeof(int);
+	int *arr_d, *arrl_d, *arrh_d, *arrl_h, *arrh_h;
+
+	
+	arrl_h = new int[len];
+	arrh_h = new int[len];
+
+	for (int i = 0; i < len; i++) {
+		arrl_h[i] = -9999;
+		arrh_h[i] = -9999;
+	}
+
+	
+	cudaMalloc((void**)&arr_d, size);
+	cudaMalloc((void**)&arrl_d, size);
+	cudaMalloc((void**)&arrh_d, size);
+
+	cudaMemcpy(arr_d, arr, size, cudaMemcpyHostToDevice);
+	cudaMemcpy(arrl_d, arrl_h, size, cudaMemcpyHostToDevice);
+	cudaMemcpy(arrh_d, arrh_h, size, cudaMemcpyHostToDevice);
+
+	sort << <1, len - 1 >> > (arr_d, arrl_d, arrh_d, pivot, len);
+
+	cudaMemcpy(arrl_h, arrl_d, size, cudaMemcpyDeviceToHost);
+	cudaMemcpy(arrh_h, arrh_d, size, cudaMemcpyDeviceToHost);
+	
+	int *temp1 = new int[len];
+	int *temp2 = new int[len];
+
+	for (int i = 0; i < len; i++) {
+		temp1[i] = temp2[i] = -9999;
+	}
+
+	int j = 0, k = 0;
+
+	for (int i = 0; i < len; i++) {
+		if (arrl_h[i] != -9999)
+			temp1[j++] = arrl_h[i];
+		if (arrh_h[i] != -9999)
+			temp2[k++] = arrh_h[i];
+	}
+
+	quickSort(temp1, j);
+	int p = 0;
+	for (int i = 0; i < j; i++)
+		arr[p++] = temp1[i];
+	arr[p++] = pivot;
+
+	quickSort(temp2, k);
+	for (int i = 0; i < k; i++)
+		arr[p++] = temp2[i];
+
+
+	
+
+	cudaFree(arr_d);
+	cudaFree(arrl_d);
+	cudaFree(arrh_d);
+	delete arrl_h;
+	delete arrh_h;
+	delete temp1;
+	delete temp2;
+}
+
+int main() {
+
+	int len, arr[25];
+
+	cout << "\nEnter number of elements: ";			cin >> len;
+	cout << "\nEnter elements: \n";
+	for (int i = 0; i < len; i++) {
+		cin >> arr[i];
+	}
+
+	quickSort(arr, len);
+
+	cout << "\nSorted array is: \n";
+	for (int i = 0; i < len; i++) {
+		cout << arr[i] << "\t";
+	}
+
+	getch();
+	return 0;
+}

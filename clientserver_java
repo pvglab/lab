@@ -1,0 +1,244 @@
+
+//Server
+import java.io.*;
+import java.net.*;
+ 
+public class Server2 {
+    public static void main(String args[]) {
+
+
+		int port = 6789;
+		Server2 server = new Server2( port );
+		server.startServer();
+    }
+ 
+    
+ 
+ 
+    ServerSocket echoServer = null;
+    Socket clientSocket = null;
+    int numConnections = 0;
+    int port;
+    
+    
+    public Server2( int port ) {
+	this.port = port;
+    }
+ 
+    public void stopServer() {
+	System.out.println( "Stoping server." );
+	System.out.println( "Total connections done: " + numConnections );
+	System.exit(0);
+    }
+ 
+ 
+    public void startServer() {
+
+
+
+        try {
+	    echoServer = new ServerSocket(port);
+        }
+        catch (IOException e) {
+		System.out.println(e);
+        } 
+         
+		System.out.println( "Server is started and is waiting for connections." );
+		System.out.println( "With multi-threading, multiple connections are allowed." );
+		System.out.println( "Any client can send 'exitServer' to stop the server." );
+ 
+
+
+
+	while ( true ) {
+	
+	    try 
+	    {
+			clientSocket = echoServer.accept();
+			numConnections ++;
+			Server2Connection oneconnection = new Server2Connection(clientSocket, numConnections, this);
+			new Thread(oneconnection).start();
+	    }  
+    	    catch (IOException e) {
+    	
+		System.out.println(e);
+    	    }
+	 }
+    }
+}
+
+
+class Server2Connection implements Runnable {
+
+
+    BufferedReader is;
+    PrintStream os;
+    Socket clientSocket;
+    int id;
+    Server2 server;
+    
+    
+    public Server2Connection(Socket clientSocket, int id, Server2 server) {
+
+		this.clientSocket = clientSocket;
+		this.id = id;
+		this.server = server;
+		System.out.println( "Connection " + id + " established with: " + clientSocket );
+		
+		
+		try 
+		{
+    			is = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
+    			os = new PrintStream(clientSocket.getOutputStream());
+		}
+		catch (IOException e) {
+		    System.out.println(e);
+		}
+    }
+    
+    
+    public void run() {
+        
+        String line;
+	
+	try 
+	{
+    		boolean serverStop = false;
+ 
+            	while (true) {
+                	line = is.readLine();
+			System.out.println( "Received " + line + " from Connection " + id + "." );
+                	//int n = Integer.parseInt(line);
+			String n = line;
+			
+			if ( n.equals("exitServer") ) {
+    				serverStop = true;
+    				break;
+			}
+
+
+			if ( n.equals("exitClient") ) 
+				break;
+				
+                	os.println(n);
+            }
+ 
+    	    System.out.println( "Connection " + id + " closed." );
+            is.close();
+            os.close();
+            clientSocket.close();
+ 
+   		 if ( serverStop ) 
+   		 	server.stopServer();
+	}	 
+	catch (IOException e) {
+	
+    		System.out.println(e);
+	}
+    }
+}
+
+//Client
+import java.io.*;
+import java.net.*;
+ 
+public class Client2 {
+    public static void main(String[] args) {
+	
+	String hostname = "localhost";
+	int port = 6789;
+ 
+
+        Socket clientSocket = null;  
+        DataOutputStream os = null;
+        BufferedReader is = null;
+
+
+        try {
+            clientSocket = new Socket(hostname, port);
+            os = new DataOutputStream(clientSocket.getOutputStream());
+            is = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
+        } catch (UnknownHostException e) {
+            System.out.println("Unknown host exception");
+        } catch (IOException e) {
+            System.out.println("IOException");
+        }
+        
+
+
+	if (clientSocket == null || os == null || is == null) {
+   		 System.out.println( "null values found!" );
+ 		   return;
+	}
+ 
+	try 
+	{
+	
+  	  while ( true ) {
+		System.out.print( "Enter string ('exitClient' to stop connection, 'exitServer' to stop server): " );
+		BufferedReader br = new BufferedReader(new InputStreamReader(System.in));
+		String keyboardInput = br.readLine();
+		os.writeBytes( keyboardInput + "\n" );
+ 
+		String n =  keyboardInput ;
+		
+		if ( n.equals("exitServer") || n.equals("exitClient") ) 
+		{
+    			break;
+		}
+		
+		String responseLine = is.readLine();
+		System.out.println("Server returned: " + responseLine);
+    	   }
+   
+    
+ 	   os.close();
+ 	   is.close();
+ 	   clientSocket.close();  
+ 	   
+	} 
+	catch (UnknownHostException e)
+	 {
+    		System.out.println("Trying to connect to unknown host: " + e);
+    		
+	}
+ 	catch (IOException e) 
+ 	{
+   		 System.out.println("IOException:  " + e);
+	}
+    }          
+
+OUTPUT
+Server:
+
+pvg@ubuntu:~$ javac Server2.java 
+pvg@ubuntu:~$ java Server2
+Server is started and is waiting for connections.
+With multi-threading, multiple connections are allowed.
+Any client can send 'exitServer' to stop the server.
+Connection 1 established with: Socket[addr=/127.0.0.1,port=60972,localport=6789]
+Connection 2 established with: Socket[addr=/127.0.0.1,port=60974,localport=6789]
+Received hello from Connection 1.
+Received pvg from Connection 2.
+Received exitClient from Connection 1.
+Connection 1 closed.
+Received exitServer from Connection 2.
+Connection 2 closed.
+Server stoping.
+Total connections done: 2
+
+Client 1:
+
+pvg@ubuntu:~$ javac Client2.java 
+pvg@ubuntu:~$ java Client2 
+Enter string ('exitClient' to stop connection, 'exitServer' to stop server): hello
+Server returned: hello
+Enter string ('exitClient' to stop connection, 'exitServer' to stop server): exitClient
+
+Client 2:
+
+pvg@ubuntu:~$ javac Client2.java 
+pvg@ubuntu:~$ java Client2 
+Enter string ('exitClient' to stop connection, 'exitServer' to stop server): pvg
+Server returned: pvg
+Enter string ('exitClient' to stop connection, 'exitServer' to stop server): exitServer
